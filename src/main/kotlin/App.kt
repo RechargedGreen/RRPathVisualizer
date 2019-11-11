@@ -21,10 +21,16 @@ class App : Application() {
     val endRect = Rectangle(100.0, 100.0, 10.0, 10.0)
 
     var startTime = Double.NaN
-    val trajectory = TrajectoryGen.createTrajectory()
+    val trajectories = TrajectoryGen.createTrajectory()
 
     lateinit var fieldImage: Image
     lateinit var stage: Stage
+
+
+    var activeTrajectoryIndex = 0
+    val trajectoryDurations = trajectories.map { it.duration() }
+    val duration = trajectoryDurations.sum()
+    val numberOfTrajectories = trajectories.size
 
     companion object {
         var WIDTH = 0.0
@@ -58,7 +64,7 @@ class App : Application() {
         stage.title = "PathVisualizer"
         stage.isResizable = false
 
-        println("duration ${trajectory.duration()}")
+        println("duration $duration")
 
         stage.show()
         t1.play()
@@ -78,18 +84,32 @@ class App : Application() {
         TrajectoryGen.drawOffbounds()
         gc.globalAlpha = 1.0
 
-        val time = Clock.seconds
-        val profileTime = time - startTime
-        val duration = trajectory.duration()
+        val trajectory = trajectories[activeTrajectoryIndex]
 
-        val start = trajectory.start()
-        val end = trajectory.end()
+        val prevDurations: Double = {
+            var x = 0.0
+            for (i in 0 until activeTrajectoryIndex)
+                x += trajectoryDurations[i]
+            x
+        }()
+
+        val time = Clock.seconds
+        val profileTime = time - startTime - prevDurations
+        val duration = trajectoryDurations[activeTrajectoryIndex]
+
+        val start = trajectories.first().start()
+        val end = trajectories.last().end()
         val current = trajectory[profileTime]
 
-        if (profileTime >= duration)
-            startTime = time
+        if (profileTime >= duration) {
+            activeTrajectoryIndex++
+            if(activeTrajectoryIndex >= numberOfTrajectories) {
+                activeTrajectoryIndex = 0
+                startTime = time
+            }
+        }
 
-        GraphicsUtil.drawSampledPath(trajectory.path)
+        trajectories.forEach{GraphicsUtil.drawSampledPath(it.path)}
 
         GraphicsUtil.updateRobotRect(startRect, start, GraphicsUtil.END_BOX_COLOR, 0.5)
         GraphicsUtil.updateRobotRect(endRect, end, GraphicsUtil.END_BOX_COLOR, 0.5)
